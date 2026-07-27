@@ -6,6 +6,10 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from functools import wraps
 from models import db, User, OrganizerProfile
 
+
+def validation_error(message):
+    return {'error': message}, 400
+
 # Custom Role Authorization Decorator
 def admin_required():
     def wrapper(fn):
@@ -13,7 +17,7 @@ def admin_required():
         @jwt_required()
         def decorator(*args, **kwargs):
             current_user_id = get_jwt_identity()
-            user = User.query.get(current_user_id)
+            user = db.session.get(User, int(current_user_id))
             if not user or user.role != 'admin':
                 return {'error': 'Forbidden: Admin access required'}, 403
             return fn(*args, **kwargs)
@@ -22,7 +26,13 @@ def admin_required():
 
 class RegisterResource(Resource):
     def post(self):
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
+        required = ('username', 'email', 'password')
+        missing = [field for field in required if not str(data.get(field, '')).strip()]
+        if missing:
+            return validation_error(f"Missing required field(s): {', '.join(missing)}")
+        if data.get('role', 'student') not in {'student', 'admin'}:
+            return validation_error('Role must be either student or admin')
         
         if User.query.filter((User.email == data.get('email')) | (User.username == data.get('username'))).first():
             return {'error': 'Username or Email already exists'}, 400
@@ -53,11 +63,14 @@ class RegisterResource(Resource):
 
 class LoginResource(Resource):
     def post(self):
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
+        if not data.get('email') or not data.get('password'):
+            return validation_error('Email and password are required')
         user = User.query.filter_by(email=data.get('email')).first()
 
         if user and check_password_hash(user.password_hash, data.get('password')):
-            access_token = create_access_token(identity=user.id)
+            # PyJWT requires the JWT subject claim to be a string.
+            access_token = create_access_token(identity=str(user.id))
             return {
                 'access_token': access_token,
                 'user': {

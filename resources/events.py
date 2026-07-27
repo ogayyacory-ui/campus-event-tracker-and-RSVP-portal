@@ -6,11 +6,41 @@ from datetime import datetime
 from models import db, Event, User, OrganizerProfile
 from resources.auth import admin_required
 
+
+EVENT_FIELDS = {'title', 'description', 'category', 'location', 'capacity', 'event_date'}
+
+
+def event_payload(data, partial=False):
+    if not isinstance(data, dict):
+        return None, 'A JSON object is required'
+    if not partial:
+        missing = EVENT_FIELDS - data.keys()
+        if missing:
+            return None, f"Missing required field(s): {', '.join(sorted(missing))}"
+
+    payload = {key: value for key, value in data.items() if key in EVENT_FIELDS}
+    if 'capacity' in payload:
+        try:
+            payload['capacity'] = int(payload['capacity'])
+        except (TypeError, ValueError):
+            return None, 'Capacity must be a whole number'
+        if payload['capacity'] < 1:
+            return None, 'Capacity must be at least 1'
+    if 'event_date' in payload:
+        try:
+            payload['event_date'] = datetime.fromisoformat(payload['event_date'])
+        except (TypeError, ValueError):
+            return None, 'event_date must be a valid ISO-8601 datetime'
+    for field in ('title', 'description', 'category', 'location'):
+        if field in payload and not str(payload[field]).strip():
+            return None, f'{field} cannot be empty'
+    return payload, None
+
 class EventListResource(Resource):
     def get(self):
         # 1. Mandatory Pagination via Query Params
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 6, type=int)
+        page = max(request.args.get('page', 1, type=int) or 1, 1)
+        per_page = min(max(request.args.get('per_page', 6, type=int) or 6, 1), 100)
         
         # Filtering parameters
         category = request.args.get('category')
@@ -38,19 +68,16 @@ class EventListResource(Resource):
     def post(self):
         # Admin / Organizer restricted endpoint
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
+        user = db.session.get(User, int(current_user_id))
         
         if not user.organizer_profile:
             return {'error': 'User lacks an organizer profile'}, 400
 
-        data = request.get_json()
+        data, error = event_payload(request.get_json(silent=True))
+        if error:
+            return {'error': error}, 400
         new_event = Event(
-            title=data['title'],
-            description=data['description'],
-            category=data['category'],
-            location=data['location'],
-            capacity=data['capacity'],
-            event_date=datetime.fromisoformat(data['event_date']),
+            **data,
             organizer_id=user.organizer_profile.id
         )
         db.session.add(new_event)
@@ -66,12 +93,14 @@ class EventDetailResource(Resource):
     @admin_required()
     def patch(self, event_id):
         event = Event.query.get_or_404(event_id)
-        data = request.get_json()
+        if event.organizer.user_id != int(get_jwt_identity()):
+            return {'error': 'You can only modify your own events'}, 403
+        data, error = event_payload(request.get_json(silent=True), partial=True)
+        if error:
+            return {'error': error}, 400
 
         for key, value in data.items():
-            if key == 'event_date':
-                setattr(event, key, datetime.fromisoformat(value))
-            elif hasattr(event, key):
+            if key in EVENT_FIELDS:
                 setattr(event, key, value)
 
         db.session.commit()
@@ -80,6 +109,8 @@ class EventDetailResource(Resource):
     @admin_required()
     def delete(self, event_id):
         event = Event.query.get_or_404(event_id)
+        if event.organizer.user_id != int(get_jwt_identity()):
+            return {'error': 'You can only delete your own events'}, 403
         db.session.delete(event)
         db.session.commit()
         return {'message': 'Event deleted successfully'}, 200

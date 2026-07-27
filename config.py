@@ -9,7 +9,9 @@ class Config:
     """Base Configuration Options"""
     
     # Flask Secret Key
-    SECRET_KEY = os.getenv('SECRET_KEY', 'default-dev-key-change-in-production')
+    SECRET_KEY = os.getenv(
+        'SECRET_KEY', 'development-only-secret-key-change-this-before-deployment'
+    )
     
     # SQLAlchemy Database Setup
     # Fallback to local PostgreSQL database if DATABASE_URI isn't provided
@@ -20,7 +22,9 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Flask-JWT-Extended Setup
-    JWT_SECRET_KEY = os.getenv('JWT_SECRET', 'super-secret-jwt-key')
+    JWT_SECRET_KEY = os.getenv(
+        'JWT_SECRET', 'development-only-jwt-secret-change-this-before-deployment'
+    )
     
     # Optional: Set JWT Expiration (e.g., 2 hours)
     # from datetime import timedelta
@@ -37,9 +41,16 @@ class ProductionConfig(Config):
     DEBUG = False
 
 
+class TestingConfig(Config):
+    """Isolated configuration used by the automated test suite."""
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite://'
+
+
 # Dictionary mapping names to configuration classes
 config = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
+    'testing': TestingConfig,
     'default': DevelopmentConfig
 }

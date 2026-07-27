@@ -1,83 +1,143 @@
 # seed.py
-from app import app
+from app import create_app
 from models import db, User, OrganizerProfile, Event, RSVP
 from werkzeug.security import generate_password_hash
-from faker import Faker
 from datetime import datetime, timedelta
-import random
 
-fake = Faker()
+app = create_app('development')
 
 with app.app_context():
-    print("Clearing old data...")
+    print("Clearing existing data...")
     RSVP.query.delete()
     Event.query.delete()
     OrganizerProfile.query.delete()
     User.query.delete()
 
-    print("Seeding Users and Profiles...")
-    # Admin User
-    admin = User(
-        username="admin_dept",
-        email="admin@campus.edu",
-        password_hash=generate_password_hash("admin123"),
+    print("Seeding Users...")
+    # Admin / Organizer User
+    admin_user = User(
+        username="admin_kagwiria",
+        email="kagwiria@campus.edu",
+        password_hash=generate_password_hash("kag123"),
         role="admin"
     )
-    db.session.add(admin)
-    db.session.commit()
 
-    admin_profile = OrganizerProfile(
-        user_id=admin.id,
-        organization_name="Student Affairs",
-        department="Academic"
-    )
-    db.session.add(admin_profile)
-
-    # Regular Students
-    students = []
-    for _ in range(10):
-        student = User(
-            username=fake.user_name(),
-            email=fake.email(),
-            password_hash=generate_password_hash("password123"),
+    # Standard Student Users
+    students = [
+        User(
+            username="Omondi_c",
+            email="omosh@campus.edu",
+            password_hash=generate_password_hash("omosH123"),
+            role="student"
+        ),
+        User(
+            username="Matiku_m",
+            email="matiku@campus.edu",
+            password_hash=generate_password_hash("pMNm123"),
+            role="student"
+        ),
+        User(
+            username="maya_p",
+            email="maya@campus.edu",
+            password_hash=generate_password_hash("@maya123"),
+            role="student"
+        ),
+        User(
+            username="Wafula_k",
+            email="Wafula@campus.edu",
+            password_hash=generate_password_hash("3fuls"),
             role="student"
         )
-        students.append(student)
-        db.session.add(student)
-    
+    ]
+
+    db.session.add(admin_user)
+    db.session.add_all(students)
+    db.session.commit()
+
+    print("Seeding Organizer Profile...")
+    organizer = OrganizerProfile(
+        user_id=admin_user.id,
+        organization_name="Campus Activity Board",
+        department="Student Life",
+        is_verified=True
+    )
+    db.session.add(organizer)
     db.session.commit()
 
     print("Seeding Events...")
-    categories = ['academic', 'social', 'sports']
-    events = []
-    for _ in range(8):
-        event = Event(
-            title=fake.catch_phrase(),
-            description=fake.paragraph(),
-            category=random.choice(categories),
-            location=f"Hall {random.randint(1, 10)}",
-            capacity=random.randint(30, 200),
-            event_date=datetime.now() + timedelta(days=random.randint(1, 30)),
-            organizer_id=admin_profile.id
+    now = datetime.now()
+    mock_events = [
+        Event(
+            title="Annual Tech Symposium 2026",
+            description="Explore innovations in AI, software engineering, and robotics with industry guest speakers.",
+            category="academic",
+            location="Engineering Hall 101",
+            capacity=150,
+            event_date=now + timedelta(days=3),
+            organizer_id=organizer.id
+        ),
+        Event(
+            title="Campus Welcome Night & Concert",
+            description="Live music, free food trucks, and games for all new and returning students.",
+            category="social",
+            location="Student Center Plaza",
+            capacity=300,
+            event_date=now + timedelta(days=7),
+            organizer_id=organizer.id
+        ),
+        Event(
+            title="Inter-Department Basketball Finals",
+            description="Watch Computer Science face off against Business Administration in the championship game.",
+            category="sports",
+            location="Campus Recreation Gym",
+            capacity=200,
+            event_date=now + timedelta(days=12),
+            organizer_id=organizer.id
+        ),
+        Event(
+            title="AI & Web Dev Workshop",
+            description="Hands-on coding session covering React and Python backend architectures.",
+            category="academic",
+            location="Science Complex Lab 3B",
+            capacity=40,
+            event_date=now + timedelta(days=18),
+            organizer_id=organizer.id
+        ),
+        Event(
+            title="Outdoor Cinema: Movie Under the Stars",
+            description="Bring your blankets and snacks for a screening on the main quad lawn.",
+            category="social",
+            location="Student center",
+            capacity=250,
+            event_date=now + timedelta(days=22),
+            organizer_id=organizer.id
         )
-        events.append(event)
-        db.session.add(event)
+    ]
 
+    db.session.add_all(mock_events)
     db.session.commit()
 
-    print("Seeding RSVPs (Many:Many with extra data)...")
-    ticket_types = ['General', 'VIP', 'Student']
-    for student in students:
-        # Assign 1 to 3 random event RSVPs per student
-        for event in random.sample(events, k=random.randint(1, 3)):
-            rsvp = RSVP(
-                user_id=student.id,
-                event_id=event.id,
-                ticket_type=random.choice(ticket_types),
-                status='attending',
-                checked_in=random.choice([True, False])
-            )
-            db.session.add(rsvp)
+    print("Seeding RSVPs (M:N Association Attributes)...")
+    # Mapping specific RSVPs so you have predictable test data
+    mock_rsvps = [
+        # Event 1: Tech Symposium
+        RSVP(user_id=students[0].id, event_id=mock_events[0].id, ticket_type="General", status="attending", checked_in=True),
+        RSVP(user_id=students[1].id, event_id=mock_events[0].id, ticket_type="VIP", status="attending", checked_in=False),
+        RSVP(user_id=students[2].id, event_id=mock_events[0].id, ticket_type="Student", status="attending", checked_in=True),
+        
+        # Event 2: Welcome Night
+        RSVP(user_id=students[0].id, event_id=mock_events[1].id, ticket_type="General", status="attending", checked_in=False),
+        RSVP(user_id=students[3].id, event_id=mock_events[1].id, ticket_type="General", status="attending", checked_in=False),
+        
+        # Event 3: Basketball Finals
+        RSVP(user_id=students[1].id, event_id=mock_events[2].id, ticket_type="Student", status="attending", checked_in=True),
+        RSVP(user_id=students[2].id, event_id=mock_events[2].id, ticket_type="Student", status="cancelled", checked_in=False),
 
+        # Event 4: AI Workshop
+        RSVP(user_id=students[0].id, event_id=mock_events[3].id, ticket_type="VIP", status="attending", checked_in=False),
+    ]
+
+    db.session.add_all(mock_rsvps)
     db.session.commit()
-    print("Database seeded successfully!")
+
+    print("Database successfully seeded with mock data!")
