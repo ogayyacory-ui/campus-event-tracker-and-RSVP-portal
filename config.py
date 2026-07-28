@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
 class Config:
     """Base Configuration Options"""
     
@@ -13,11 +15,13 @@ class Config:
         'SECRET_KEY', 'development-only-secret-key-change-this-before-deployment'
     )
     
-    # SQLAlchemy Database Setup
-    # Fallback to local PostgreSQL database if DATABASE_URI isn't provided
-    SQLALCHEMY_DATABASE_URI = os.getenv(
-        'DATABASE_URI', 
-        'postgresql://postgres:postgres@localhost:5432/campus_events_db'
+    # SQLAlchemy Database Setup.  A local SQLite database makes the project
+    # runnable out of the box; deployments can provide DATABASE_URL or the
+    # legacy DATABASE_URI value for PostgreSQL.
+    SQLALCHEMY_DATABASE_URI = (
+        os.getenv('DATABASE_URL')
+        or os.getenv('DATABASE_URI')
+        or f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'campus_events.db')}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
