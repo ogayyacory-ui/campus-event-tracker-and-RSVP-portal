@@ -9,10 +9,10 @@ from dotenv import load_dotenv
 
 from models import db
 from config import config
-from resources.auth import RegisterResource, LoginResource
-from resources.events import EventListResource, EventDetailResource
-from resources.rsvps import RSVPResource, UserRSVPListResource
-from resources.analytics import AnalyticsResource
+from controllers.auth import RegisterResource, LoginResource
+from controllers.events import EventListResource, EventDetailResource
+from controllers.rsvps import RSVPResource, UserRSVPListResource
+from controllers.analytics import AnalyticsResource
 
 load_dotenv()
 

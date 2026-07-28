@@ -4,7 +4,7 @@ from flask_restful import Resource
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
 from models import db, Event, User, OrganizerProfile
-from resources.auth import admin_required
+from controllers.auth import admin_required
 
 
 EVENT_FIELDS = {'title', 'description', 'category', 'location', 'capacity', 'event_date'}

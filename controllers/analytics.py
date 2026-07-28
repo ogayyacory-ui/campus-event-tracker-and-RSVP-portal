@@ -3,7 +3,7 @@ from flask_restful import Resource
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from models import db, Event, RSVP, OrganizerProfile, User
-from resources.auth import admin_required
+from controllers.auth import admin_required
 
 class AnalyticsResource(Resource):
     @admin_required()
